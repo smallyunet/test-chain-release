@@ -60,7 +60,6 @@ jobs:
         with:
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          body_path: ${{ github.workspace }}-CHANGELOG.txt
           tag_name: ${{ env.GITHUB_TAG_MAJOR_VERSION }}
 
       - name: Publish Release Files
