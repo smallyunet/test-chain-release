@@ -70,7 +70,6 @@ jobs:
       - name: Publish Release Files
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GOPRIVATE: "github.com/0xPellNetwork"
         run: |
           echo "Pulling image: docker.io/pellnetwork/pellnode:${GORELEASER_CURRENT_TAG}"
           docker pull docker.io/pellnetwork/pellnode:${GORELEASER_CURRENT_TAG}
