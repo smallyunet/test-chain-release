@@ -24,3 +24,4 @@ Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed changelog form
 v0.0.3
 v0.0.5
 v0.0.6
+v1.1.4
