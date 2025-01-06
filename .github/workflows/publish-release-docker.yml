@@ -10,7 +10,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-
   check-branch:
     runs-on: ubuntu-latest
     outputs:
@@ -30,8 +29,7 @@ jobs:
       contents: write
       attestations: write
     if: inputs.skip_release != true
-    needs:
-      - check-branch
+    needs: [check-branch]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: release
@@ -43,8 +41,8 @@ jobs:
 
       - name: Set Version from Tag
         run: |
-          echo "GITHUB_TAG_VERSION=${{ needs.check-branch.outputs.tag_version }}" >> ${GITHUB_ENV}
-          echo "GORELEASER_CURRENT_TAG=${{ needs.check-branch.outputs.tag_version }}" >> ${GITHUB_ENV}
+          echo "GITHUB_TAG_VERSION=${{ needs.check-branch.outputs.tag_version }}" >> "${GITHUB_ENV}"
+          echo "GORELEASER_CURRENT_TAG=${{ needs.check-branch.outputs.tag_version }}" >> "${GITHUB_ENV}"
           echo "Using tag version: ${{ needs.check-branch.outputs.tag_version }}"
 
       - name: Print Version Info
@@ -54,6 +52,7 @@ jobs:
             echo "ERROR: GORELEASER_CURRENT_TAG is empty!"
             exit 1
           fi
+          echo "GITHUB_TAG_MAJOR_VERSION=${GITHUB_TAG_MAJOR_VERSION}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -71,7 +70,7 @@ jobs:
 
       - name: Publish Release Files
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GOPRIVATE: "github.com/0xPellNetwork"
         run: |
           echo "Pulling image: docker.io/pellnetwork/pellnode:${GORELEASER_CURRENT_TAG}"
