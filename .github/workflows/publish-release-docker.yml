@@ -13,52 +13,16 @@ jobs:
 
   check-branch:
     runs-on: ubuntu-latest
+    outputs:
+      tag_version: ${{ steps.get-tag.outputs.TAG_VERSION }}
     steps:
       - name: Get Tag Version
+        id: get-tag
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/}"
-          echo "GITHUB_TAG_VERSION=$TAG_VERSION" >> ${GITHUB_ENV}
+          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
           echo "Tag version is: $TAG_VERSION"
-
-  check-changelog:
-    needs:
-      - check-branch
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        if: inputs.skip_checks != true
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
-      - name: Get latest commit SHA of Main & Current Tag
-        if: inputs.skip_checks != true
-        id: get-main-sha
-        run: |
-          SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          https://api.github.com/repos/${{ github.repository }}/git/ref/heads/main | jq -r '.object.sha')
-          echo "MAIN_SHA=${SHA}" >> ${GITHUB_ENV}
-          echo "CURRENT_BRANCH_SHA=${{ github.sha }}" >> ${GITHUB_ENV}
-
-      # - name: Check for CHANGELOG.md changes
-      #   if: inputs.skip_checks != true
-      #   run: |
-      #     echo "Check the changelog has actually been updated from whats in main"
-      #     CHANGELOG_DIFF=$(git diff ${MAIN_SHA}..${CURRENT_BRANCH_SHA} -- CHANGELOG.md)
-      #     if [ -z "$CHANGELOG_DIFF" ]; then
-      #       echo "ERROR: No changes detected in CHANGELOG.md. Please update the changelog."
-      #       exit 1
-      #     else
-      #       echo "CHANGELOG.md has been updated."
-      #     fi
-
-      - name: Mark Job Complete Skipped
-        if: inputs.skip_checks == true
-        shell: bash
-        run: echo "continue"
+          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_OUTPUT
 
   publish-release:
     permissions:
@@ -67,7 +31,6 @@ jobs:
       attestations: write
     if: inputs.skip_release != true
     needs:
-      # - check-changelog
       - check-branch
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -78,16 +41,19 @@ jobs:
           fetch-depth: 0
           tags: true
 
-      - name: Change Log Release Notes.
-        id: release_notes
-        run: |
-          cat CHANGELOG.md > ${{ github.workspace }}-CHANGELOG.txt
-          cat ${{ github.workspace }}-CHANGELOG.txt
-
       - name: Set Version from Tag
         run: |
-          echo "GITHUB_TAG_MAJOR_VERSION=${GITHUB_TAG_VERSION}" >> ${GITHUB_ENV}
-          echo "Using tag version: ${GITHUB_TAG_VERSION}"
+          echo "GITHUB_TAG_VERSION=${{ needs.check-branch.outputs.tag_version }}" >> ${GITHUB_ENV}
+          echo "GORELEASER_CURRENT_TAG=${{ needs.check-branch.outputs.tag_version }}" >> ${GITHUB_ENV}
+          echo "Using tag version: ${{ needs.check-branch.outputs.tag_version }}"
+
+      - name: Print Version Info
+        run: |
+          echo "GORELEASER_CURRENT_TAG=${GORELEASER_CURRENT_TAG}"
+          if [ -z "${GORELEASER_CURRENT_TAG}" ]; then
+            echo "ERROR: GORELEASER_CURRENT_TAG is empty!"
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -101,8 +67,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           GOPRIVATE: "github.com/0xPellNetwork"
-          GORELEASER_CURRENT_TAG: ${{ env.GITHUB_TAG_MAJOR_VERSION }}
         run: |
+          echo "Pulling image: docker.io/pellnetwork/pellnode:${GORELEASER_CURRENT_TAG}"
           docker pull docker.io/pellnetwork/pellnode:${GORELEASER_CURRENT_TAG}
 
           CONTAINER_ID=$(docker create docker.io/pellnetwork/pellnode:${GORELEASER_CURRENT_TAG})
